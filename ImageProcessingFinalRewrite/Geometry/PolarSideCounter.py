@@ -22,6 +22,8 @@ class PolarSideCounter:
         self.smooth_plot(6, 6)
         
         self.init_maximums()
+        self.init_minimums()
+        print("minimum count: " + str(self.minimums))
 
     
     def set_origin(self):
@@ -47,6 +49,9 @@ class PolarSideCounter:
     
     def get_maximums(self):
         return self.maximums 
+    
+    def get_minimums(self):
+        return self.minimums
     
     def append_window_to_plot(self):
         end_first_slice = self.plot[len(self.plot) - (self.max_window-1)/2 : len(self.plot)]
@@ -90,6 +95,11 @@ class PolarSideCounter:
             if self.get_if_is_max_across_num(i, self.max_window):
                 self.maximums.append(self.plot[i])
     
+    def init_minimums(self):
+        self.minimums = []
+        for i in range((self.max_window-1)/2, len(self.plot) - (self.max_window-1)/2):
+            if self.get_if_is_min_across_num(i, self.max_window):
+                self.minimums.append(self.plot[i])
     
     def get_if_is_max_across_num(self, index, num):
         index_count = index - (num-1)/2
@@ -109,6 +119,26 @@ class PolarSideCounter:
                 index_count -= len(self.plot)
         if not (self.plot[index].get_radius() > self.plot[index-1].get_radius() and self.plot[index].get_radius() > self.plot[index + 1].get_radius()):
             return False
+        return True  
+    
+    def get_if_is_min_across_num(self, index, num):
+        index_count = index - (num-1)/2
+        while index_count < index - 1:
+            if not(self.plot[index_count].get_radius() > self.plot[index_count + 1].get_radius()):
+                return False
+            index_count += 1
+            if index_count >= len(self.plot):
+                index_count -= len(self.plot)
+        index_count = index
+        
+        while index_count < index + (num-1)/2:
+            if not(self.plot[index_count].get_radius() < self.plot[index_count + 1].get_radius()):
+                return False
+            index_count += 1
+            if index_count >= len(self.plot):
+                index_count -= len(self.plot)
+        if not (self.plot[index].get_radius() < self.plot[index-1].get_radius() and self.plot[index].get_radius() < self.plot[index + 1].get_radius()):
+            return False
         return True    
         
     def get_maximums_drawn_to_img(self):
@@ -117,6 +147,16 @@ class PolarSideCounter:
         for r_angle in self.maximums:
             r_angle.draw_dot(img, image, self.origin, 255)
         return img
+    
+    def get_minimums_drawn_to_img(self):
+        img = self.canny_img.copy()
+        image = img.load()
+        for r_angle in self.minimums:
+            r_angle.draw_dot(img, image, self.origin, 255)
+        return img
+    
+    def get_origin(self):
+        return self.origin
         
 class RadiusAngle:
     def __init__(self, radiusIn, angleIn):
@@ -145,6 +185,11 @@ class RadiusAngle:
         rect.fill(img, image, color)
         #Drawer.fillRect(img, image, rect, (0,255,0))
         #image[center[0]+dx, center[1]-dy] = (0,255,0)
+    
+    def get_pixel(self, center):
+        dx = int(self.radius * cos(self.angle))
+        dy = int(self.radius * sin(self.angle))
+        return (center[0] + dx, center[1] - dy)
     
     def __repr__(self):
         return "Angle: " + str(self.angle) + " Radius: " + str(self.radius)

@@ -1,7 +1,7 @@
 import ImgVector.VectorMath as VectorMath
 import Array.ArrayHelper as ArrayHelper
 import numpy
-from math import sin, cos, atan2,pi
+from math import sin, cos, atan2,pi, degrees
 
 class TargetDirection:
     def __init__(self, eigenvectors_in, polar_side_counter_in):
@@ -18,11 +18,30 @@ class TargetDirection:
          This should be direction angle'''
         if self.num_maxes%2 == 1:
             self.direction = AngleRounder.round_to_compass_angle(self.get_max_closest_to_possible_values(possible_values).get_angle())
+            self.num_directions = 1
         else:
             self.direction = [AngleRounder.round_to_compass_angle(VectorMath.get_angle_of_2d_vector(possible_values[0])),
                               AngleRounder.round_to_compass_angle(VectorMath.get_angle_of_2d_vector(possible_values[1]))]
+            self.num_directions = 2
             
         print(self.direction)
+    
+    def get_letter_imgs_rotated_to_possible_directions(self, letter_img):
+        if self.num_directions == 1:
+            return (letter_img.rotate(degrees(self.direction[1]), expand=True), self.direction[0], self.direction[1]), 1
+        else:
+            angle1 = self.direction[0][1]
+            angle2 = self.direction[1][1]
+            img1 = (letter_img.rotate(degrees(angle1), expand=True), self.direction[0][0], self.direction[0][1])
+            img2 = (letter_img.rotate(degrees(angle2), expand=True), self.direction[1][0], self.direction[1][1])
+            return [img1, img2], 2
+            
+    
+    def get_direction(self):
+        return self.direction
+    
+    def get_angle(self):
+        return self.direction[:][1]
     
     def get_max_closest_to_possible_values(self, possible_values):
         angle_differences = []
@@ -37,12 +56,13 @@ class TargetDirection:
                 smallest_index = i
             angle_differences.append(sorted_differences[0])
         return angle_differences[smallest_index]
-
+    
+    
 class AngleRounder:
     COMPASS_ANGLES = [("E", 0), ("NE", pi/4.0), ("N", pi/2.0), ("NW", 3.0*pi/4.0), ("W", pi), ("SW", 5.0*pi/4.0), ("S", 3.0*pi/2.0), ("SE", 7.0*pi/4.0)]
     @staticmethod
     def round_to_compass_angle(angle):
-        sorted_angles = sorted(AngleRounder.COMPASS_ANGLES, key = lambda compass_angle : abs(compass_angle[1]-angle))
-        return sorted_angles[0][0]
+        sorted_angles = sorted(AngleRounder.COMPASS_ANGLES, key = lambda compass_angle : abs(compass_angle[1]-angle)%(2.0*pi))
+        return sorted_angles[0]
     
     

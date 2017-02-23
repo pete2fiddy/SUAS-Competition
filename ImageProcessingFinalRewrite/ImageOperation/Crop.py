@@ -23,5 +23,5 @@ def get_bw_img_bounds(img, image):
     
 def get_img_cropped_to_bounds(img, rect):
     return img.crop((rect.get_x(), rect.get_y(), rect.get_x() + rect.get_width(), rect.get_y() + rect.get_height()))
-    
+
     

@@ -44,6 +44,14 @@ class ColorLayer:
         self.layer_img = img_in
         self.layer_image = self.layer_img.load()
         self.init_bounds()
+        self.init_area()
+        
+    def init_area(self):
+        self.area = 0
+        for x in range(0, self.layer_img.size[0]):
+            for y in range(0, self.layer_img.size[1]):
+                if self.layer_image[x,y] != 0:
+                    self.area += 1
         #needs to recalculate area!
     
     def get_layer_image(self):

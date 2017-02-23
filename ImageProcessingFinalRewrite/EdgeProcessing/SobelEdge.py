@@ -46,3 +46,7 @@ class SobelEdge:
         return self.gradient_angles
     def get_gradient_mag_img(self):
         return self.gradient_mag_img
+    def get_x_gradient(self):
+        return self.gradient_x
+    def get_y_gradient(self):
+        return self.gradient_y
