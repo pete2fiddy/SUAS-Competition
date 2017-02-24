@@ -134,6 +134,9 @@ class ShapeType:
     def get_polar_side_counter(self):
         return self.polar_side_counter
     
+    def get_shape_type(self):
+        return self.shape_type
+    
     def __repr__(self):
         return self.shape_type
             

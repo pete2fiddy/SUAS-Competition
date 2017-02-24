@@ -28,13 +28,13 @@ class TargetDirection:
     
     def get_letter_imgs_rotated_to_possible_directions(self, letter_img):
         if self.num_directions == 1:
-            return (letter_img.rotate(degrees(self.direction[1]), expand=True), self.direction[0], self.direction[1]), 1
+            return [(letter_img.rotate(degrees(self.direction[1]), expand=True), self.direction[0], self.direction[1])]
         else:
             angle1 = self.direction[0][1]
             angle2 = self.direction[1][1]
             img1 = (letter_img.rotate(degrees(angle1), expand=True), self.direction[0][0], self.direction[0][1])
             img2 = (letter_img.rotate(degrees(angle2), expand=True), self.direction[1][0], self.direction[1][1])
-            return [img1, img2], 2
+            return [img1, img2]
             
     
     def get_direction(self):

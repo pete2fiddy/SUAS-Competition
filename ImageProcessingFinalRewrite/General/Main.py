@@ -20,10 +20,9 @@ import EdgeProcessing.HarrisCorner as HarrisCorner
 
 
 shape_img = Image.open("/Users/phusisian/Desktop/Senior year/SUAS/Object images/400 crop 6480x4320.jpg")
-#shape_img = shape_img.convert('L')
-#shape_img = shape_img.resize((shape_img.size[0]/2, shape_img.size[1]/2))
 target = Target(shape_img, shape_img.load())
 
+print("Target: \n" + str(target))
 
 
 '''
