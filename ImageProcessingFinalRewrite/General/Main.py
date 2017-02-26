@@ -15,14 +15,33 @@ from PIL import ImageOps
 import timeit
 from DataMine.ZScore import ZScore
 import EdgeProcessing.HarrisCorner as HarrisCorner
+import Color.TargetColorReader as TargetColorReader
+
+'''
+kmeans_test_img = Image.open("/Users/phusisian/Desktop/Senior year/SUAS/Object images test/L Rectangle Cropped.png")
+kmeans_test_img = kmeans_test_img.resize((kmeans_test_img.size[0]/2, kmeans_test_img.size[1]/2))
+test_kmeans = KMeans.init_with_img(kmeans_test_img, kmeans_test_img.load(), 3, 20, 3)
+ColorMath.get_img_rounded_to_colors(kmeans_test_img, kmeans_test_img.load(), test_kmeans.get_cluster_origins_int()).show()
+'''
 
 
-
-
-shape_img = Image.open("/Users/phusisian/Desktop/Senior year/SUAS/Object images/400 crop 6480x4320.jpg")
+shape_img = Image.open("/Users/phusisian/Desktop/Senior year/SUAS/Object images test/Small Crops/N Triangle Cropped.jpg")#Object images test/Small Crops/N Triangle Cropped.jpg")#400 crop triangle 6480x4320.jpg")
+scale = 1#1.0/2.0
+shape_img = shape_img.resize((int(shape_img.size[0]*scale), int(shape_img.size[1]*scale)))
 target = Target(shape_img, shape_img.load())
 
 print("Target: \n" + str(target))
+
+
+
+
+
+
+
+
+
+
+
 
 
 '''

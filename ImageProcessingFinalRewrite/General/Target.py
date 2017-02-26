@@ -17,8 +17,12 @@ from Color.ColorLayer import ColorLayer
 import ImageOperation.Crop as Crop
 import ImageOperation.Scale as Scale
 import ImageOperation.Paste as Paste
+from PIL import ImageOps
 
 class Target:
+    GRADIENT_THRESHOLD = 20
+    COLOR_BLUR_KERNELSIZE = 3
+    COLOR_BLUR_STD_DEV = 5
     BLUR_SHAPE_KERNELSIZE = 3
     BLUR_SHAPE_STD_DEV = 2
     CANNY_SHAPE_THRESHOLDS = (20, 40)
@@ -39,7 +43,9 @@ class Target:
         '''to improve, remove the background color from the image then do canny on only the shape and letter.
         Will eliminate noise from background. Worth noting that the noise from background probably matters very
         little in the calculation'''
-        self.pca = SimplePCA.init_with_canny_img(self.target_canny_img, self.target_canny_img.load())
+        #letter_and_shape_canny_img = self.get_shape_and_letter_canny_img()
+        letter_canny_img = self.get_letter_canny_img()
+        self.pca = SimplePCA.init_with_monochrome_img(letter_canny_img, letter_canny_img.load())#(self.letter_layer.get_layer_img(), self.letter_layer.get_layer_img().load())#
         
         '''initializing target traits'''
         self.init_target_colors()
@@ -52,17 +58,43 @@ class Target:
         bw_target_img = self.target_img.copy().convert('L')
         gaussian_img = GaussianBlur.get_gaussian_filtered_bw_img(bw_target_img, bw_target_img.load(), Target.BLUR_TOTAL_KERNELSIZE, Target.BLUR_TOTAL_STD_DEV)
         target_sobel_edge = SobelEdge(gaussian_img)
+        self.gradient_threshold_img = target_sobel_edge.get_img_gradient_under_threshold(Target.GRADIENT_THRESHOLD)
         self.target_canny_img = CannyEdge.get_canny_img(target_sobel_edge, Target.CANNY_TOTAL_THRESHOLDS)
     
     def init_color_splitter_and_layers(self):
-        self.color_splitter = ColorSplitter.init_with_kmeans(self.target_img, self.target_image, 3, Target.KMEANS_RUN_TIMES, Target.KMEANS_STEP)
+        blurred_target_img = GaussianBlur.get_gaussian_filtered_color_img(self.target_img, self.target_image, Target.COLOR_BLUR_KERNELSIZE, Target.COLOR_BLUR_STD_DEV)
+        self.color_splitter = ColorSplitter.init_with_kmeans(blurred_target_img, blurred_target_img.load(), 3, Target.KMEANS_RUN_TIMES, Target.KMEANS_STEP)
+        background_layer = self.color_splitter.get_layers_sorted_by_avg_dist_to_center()[len(self.color_splitter.get_color_layers())-1]
+        self.unfilled_background_layer = background_layer.clone()
+        self.color_splitter.get_color_layers().remove(background_layer)
+        
+        gradient_threshold_layer = ColorLayer(0, (1,1))
+        gradient_threshold_layer.set_layer_img(self.gradient_threshold_img)
+        
+        background_layer.fill_with_color_layer(gradient_threshold_layer)
         self.color_splitter.sort_by_area()
+        for color_layer in self.color_splitter.get_color_layers():
+            color_layer.get_layer_img().show()
         self.unfilled_color_layers = self.color_splitter.get_color_layers().clone()
-        self.color_splitter.sort_by_area_then_fill_gaps()
+        self.color_splitter.sort_then_fill_gaps(self.color_splitter.sort_by_area)
         self.color_layers = self.color_splitter.get_color_layers()
+        
+        
         self.shape_layer = self.get_shape_color_layer()
         self.init_letter_layer()
-        
+    
+    def get_letter_canny_img(self):
+        letter_sobel = SobelEdge(self.letter_layer.get_layer_img())
+        return CannyEdge.get_canny_img(letter_sobel, Target.CANNY_SHAPE_THRESHOLDS)
+    
+    def get_shape_and_letter_canny_img(self):
+        letter_canny_img = self.get_letter_canny_img()
+        shape_sobel = SobelEdge(self.shape_layer.get_layer_img())
+        shape_canny_img = CannyEdge.get_canny_img(shape_sobel, Target.CANNY_SHAPE_THRESHOLDS)
+        letter_and_shape_canny_img = shape_canny_img
+        Paste.bw_paste_img_onto_img_same_dim(letter_canny_img, letter_canny_img.load(), letter_and_shape_canny_img, letter_and_shape_canny_img.load())
+        return letter_and_shape_canny_img
+       
     def init_letter_layer(self):
         self.letter_layer = self.color_layers[0]
         self.remove_possible_false_border_around_letter()
@@ -72,14 +104,25 @@ class Target:
         onto the background layer, the false border will connect with the background layer. As a result, 
         flood-filling any place that is the background and not the letter will remove the entire background
         from the appended letter-to-background image'''
-        unfilled_background_layer = self.unfilled_color_layers[len(self.unfilled_color_layers) - 1]
-        background_and_letter_layer = unfilled_background_layer.get_layer_filled_with_layer(self.letter_layer)
+        inverted_shape_layer = self.get_shape_color_layer().clone()
+        inverted_shape_layer.set_layer_img(ImageOps.invert(inverted_shape_layer.get_layer_img()))
+        background_and_letter_layer = inverted_shape_layer.get_layer_filled_with_layer(self.letter_layer)#self.unfilled_background_layer.get_layer_filled_with_layer(self.letter_layer)
+        
         '''chose (0,0) as a start because that seemed guaranteed to have the background in it. However,
         I can see times where this is not the case, and it may be necessary to add a method to ColorLayer
         that will return a pixel (doesn't really matter which) that is a part of the color layer, and 
         the flood-filling will begin there'''
         
         ImageDraw.floodfill(background_and_letter_layer.get_layer_img(), (0,0), 0)
+        img = background_and_letter_layer.get_layer_img()
+        image = img.load()
+        letter_image = self.letter_layer.get_layer_img().load()
+        for x in range(0, img.size[0]):
+            for y in range(0, img.size[1]):
+                if image[x,y] != 0 and letter_image[x,y] == 0:
+                    image[x,y] = 0
+        background_and_letter_layer.set_layer_img(img)
+        background_and_letter_layer.set_color(self.letter_layer.get_color())
         self.letter_layer = background_and_letter_layer
     
     def init_target_colors(self):
@@ -88,6 +131,7 @@ class Target:
 
     def init_shape_type(self):
         shape_img = self.shape_layer.get_layer_img().copy()
+        shape_img.show()
         self.shape_type = ShapeType(shape_img, self.pca)
         
         self.TARGET_SHAPE = self.shape_type.get_shape_type()
@@ -95,10 +139,11 @@ class Target:
     '''assuming the color splitter is sorted by top to bottom layer, the layer with the shape should always be
     2nd from the end, because it is directly after the background'''
     def get_shape_color_layer(self):
-        return self.color_layers[len(self.color_layers)-2]
+        '''made it -1 after deciding to delete the background because it is not useful for anything and can be saved anyway'''
+        return self.color_layers[len(self.color_layers)-1]
     
     def init_target_direction(self):
-        self.target_direction = TargetDirection(self.pca.get_eigenvectors(), self.shape_type.get_polar_side_counter())
+        self.target_direction = TargetDirection(self.pca.get_eigenvectors(), self.pca.get_eigenvalues(), self.shape_type.get_polar_side_counter())
 
 
     def init_letter_recognition_imgs(self):
@@ -108,7 +153,6 @@ class Target:
 
     def get_letter_img_resized_to_PCA_dims(self, letter_img):
         resized_letter_img = Crop.get_bw_img_cropped_to_bounds(letter_img, letter_img.load())
-        resized_letter_img.show()
         resized_letter_img = Scale.scale_img_to_height(resized_letter_img, Target.LETTER_RESIZE_HEIGHT)
         base_img = Image.new('L', Target.PCA_LETTER_DIM, 0)
         offset = ((Target.PCA_LETTER_DIM[0]/2) - (resized_letter_img.size[0]/2), (Target.PCA_LETTER_DIM[1]/2) - (resized_letter_img.size[1]/2))

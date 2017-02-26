@@ -19,7 +19,7 @@ class PolarSideCounter:
         '''not sure if it is good to set under mean to mean, because there may be a shape that does have
         legitimate maximums that are smaller than the mean'''
         #self.setUnderMeanToMean()
-        self.smooth_plot(6, 6)
+        self.smooth_plot(6, 3)
         
         self.init_maximums()
         self.init_minimums()

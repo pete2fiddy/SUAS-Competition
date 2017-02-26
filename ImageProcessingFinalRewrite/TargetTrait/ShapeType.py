@@ -7,6 +7,7 @@ from ImgStat.KMeans import Clusters, Cluster
 from Geometry.HoughCircle import HoughCircle
 import ImageOperation.Crop as Crop
 from Color.ColorLayer import ColorLayer
+from ImgStat.SimplePCA import SimplePCA
 from math import pi, sqrt
 class ShapeType:
     
@@ -20,7 +21,7 @@ class ShapeType:
     PENTAGON_STAR_CLUSTER_THRESHOLD = 8
     OCTAGON_CROSS_CLUSTER_THRESHOLD = 10
     SQUARE_RECTANGLE_EIGEN_RATIO_THRESHOLD = 1.2
-    HARRIS_CIRCUMFERENCE_THRESHOLD_MULTIPLIER = 0.7
+    HOUGH_CIRCUMFERENCE_THRESHOLD_MULTIPLIER = .8
     
     
     def __init__(self, shape_img_in, simple_pca_in):
@@ -28,7 +29,7 @@ class ShapeType:
         self.shape_image = self.shape_img.load()
         self.shape_img = GaussianBlur.get_gaussian_filtered_bw_img(self.shape_img, self.shape_image, ShapeType.BLUR_KERNEL_SIZE, ShapeType.BLUR_STD_DEV)
         self.shape_sobel = SobelEdge(self.shape_img)
-        self.shape_sobel.get_gradient_mag_img().show()
+        #self.shape_sobel.get_gradient_mag_img().show()
         self.canny_img = CannyEdge.get_canny_img(self.shape_sobel, ShapeType.CANNY_SHAPE_THRESHOLDS)
         self.canny_image = self.canny_img.load()
         self.init_shape_area()
@@ -45,17 +46,17 @@ class ShapeType:
         self.area = shape_layer.get_area()
     
     def init_shape_type(self):
-        self.canny_img.show()
+        #self.canny_img.show()
         self.polar_side_counter.get_maximums_drawn_to_img().show()
         self.polar_side_counter.get_minimums_drawn_to_img().show()
         
-        self.hough_circle = HoughCircle(self.canny_img, self.canny_image, (50, 200))
+        self.hough_circle = HoughCircle(self.canny_img, self.canny_image, self.get_hough_circle_range())
         print("HIGHEST RADIUS VOTE: " + str(self.hough_circle.get_highest_vote_and_radius()))
         
         highest_vote_and_radius = self.hough_circle.get_highest_vote_and_radius()
-        if highest_vote_and_radius[0] > self.get_hough_circle_vote_threshold():
+        if self.hough_vote_is_circle(highest_vote_and_radius):
             self.shape_type = "Circle"
-        elif highest_vote_and_radius[0] > self.get_hough_quartercircle_vote_threshold():
+        elif self.hough_vote_is_quartercircle(highest_vote_and_radius):
             self.shape_type = "Quarter-Circle"
         elif self.num_polar_side_maximums == 2:
             self.shape_type = "Semi-Circle"
@@ -79,14 +80,38 @@ class ShapeType:
                 else:
                     self.shape_type = "Cross"
             else: 
-                eigenvalues = self.simple_pca.get_eigenvalues()
+                eigenvalues = self.get_shape_pca().get_eigenvalues()
                 eigen_ratio = eigenvalues[0]/eigenvalues[1]
                 if eigen_ratio > ShapeType.SQUARE_RECTANGLE_EIGEN_RATIO_THRESHOLD or 1.0/eigen_ratio > ShapeType.SQUARE_RECTANGLE_EIGEN_RATIO_THRESHOLD:
                     self.shape_type = "Rectangle"
                 else:
                     self.shape_type = "Square"
-     
-    def get_hough_circle_vote_threshold(self):
+    
+    def get_shape_pca(self):
+        pca = SimplePCA.init_with_monochrome_img(self.shape_img, self.shape_image)
+        return pca
+    
+    def get_hough_circle_range(self):
+        '''returns a range that hough circles looks within to finds circles (lower bounds and upper bounds)'''
+        '''for now returns a number basically bounded by the size of the image, e.g. the circle has to have a radius 
+        smaller than the size of the image and will not have a radius that is overly small'''
+        upper_bound = 0
+        if self.shape_img.size[0] < self.shape_img.size[1]:
+            upper_bound = self.shape_img.size[0]
+        else:
+            upper_bound = self.shape_img.size[1]
+        return (8, upper_bound)
+    
+    def hough_vote_is_circle(self, highest_vote_and_radius):
+        minimum_circumference = ShapeType.HOUGH_CIRCUMFERENCE_THRESHOLD_MULTIPLIER * ((sqrt(2)+2.0)/2.0)*pi*highest_vote_and_radius[1]
+        return (highest_vote_and_radius[0] > minimum_circumference)
+    
+    def hough_vote_is_quartercircle(self, highest_vote_and_radius):
+        minimum_circumference = ShapeType.HOUGH_CIRCUMFERENCE_THRESHOLD_MULTIPLIER * ((sqrt(2)+2.0)/2.0)*pi*highest_vote_and_radius[1]/4.0
+        return (highest_vote_and_radius[0] > minimum_circumference)
+        
+    
+    def get_hough_circle_vote_threshold(self, highest_vote_and_radius):
         '''returns a minimum threshold to determine whether or not the shape is a circle. Is NOT perfect because
         the pixels that make up the circumference of the circle will not line up with it's perimeter calculated using 
         pixels as a unit, as pixels are square and a line traversing across a pixel could have length anywhere between 
@@ -96,12 +121,12 @@ class ShapeType:
         Made to work with a Hough Circle blob radius of 0'''
         radius = self.get_radius_of_possible_circle()
         minimum_circumference = sqrt(2) * pi * radius
-        return ShapeType.HARRIS_CIRCUMFERENCE_THRESHOLD_MULTIPLIER * minimum_circumference
+        return ShapeType.HOUGH_CIRCUMFERENCE_THRESHOLD_MULTIPLIER * minimum_circumference
     
     def get_hough_quartercircle_vote_threshold(self):
         radius = self.get_radius_of_possible_quartercircle()
         minimum_circumference = sqrt(2) * pi * radius / 4.0
-        return ShapeType.HARRIS_CIRCUMFERENCE_THRESHOLD_MULTIPLIER * minimum_circumference
+        return ShapeType.HOUGH_CIRCUMFERENCE_THRESHOLD_MULTIPLIER * minimum_circumference
     
     def get_radius_of_possible_circle(self):
         radius = sqrt(self.area/pi)
@@ -136,6 +161,9 @@ class ShapeType:
     
     def get_shape_type(self):
         return self.shape_type
+    
+    def get_canny_img(self):
+        return self.canny_img
     
     def __repr__(self):
         return self.shape_type

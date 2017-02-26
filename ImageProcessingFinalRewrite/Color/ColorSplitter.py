@@ -4,6 +4,7 @@ import Color.ColorMath as ColorMath
 import Array.ArrayHelper as ArrayHelper
 from ImgStat.KMeans import KMeans
 import time
+import numpy
 
 class ColorSplitter:
     def __init__(self, img_in, image_in):
@@ -19,6 +20,7 @@ class ColorSplitter:
         kmeans_colors = kmeans.get_cluster_origins_int()
         kmeans_img = ColorMath.get_img_rounded_to_colors(img_in, image_in, kmeans_colors)
         kmeans_image = kmeans_img.load()
+        kmeans_img.show()
         return ColorSplitter(kmeans_img, kmeans_image)
         
     def init_color_layers(self):
@@ -36,10 +38,18 @@ class ColorSplitter:
     def sort_by_area(self):
         self.color_layers.set_color_layers( sorted(self.color_layers, key=lambda layer: layer.get_area()))
         
+    def get_layers_sorted_by_avg_dist_to_center(self):
+        return sorted(self.color_layers, key=lambda layer: layer.get_avg_dist_from_center())
+    
+    '''
+    def sort_by_avg_bounds_distance_to_center(self):
+        center = numpy.array([self.img.size[0]/2, self.img.size[1]/2])
+        self.color_layers.set_color_layers( sorted(self.color_layers, key=lambda layer: layer.get_bounds().get_avg_distance_to_points(center)) )
+    '''
     '''sorting by area is a simple (not sure if always effective, needs testing) way to layer the image from
     front to back, allowing you to fill holes of layers beneath other layers'''
-    def sort_by_area_then_fill_gaps(self):
-        self.sort_by_area()
+    def sort_then_fill_gaps(self, sort_function):
+        sort_function()
         for i in range(0, len(self.color_layers) - 1):
             self.color_layers[i+1].fill_with_color_layer(self.color_layers[i])
     
